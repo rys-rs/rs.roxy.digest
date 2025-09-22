@@ -1,0 +1,7 @@
+fastapi==0.116.1
+uvicorn[standard]
+motor==3.7.0
+pymongo==4.14.1
+python-dotenv==1.0.1
+orjson==3.11.2
+
