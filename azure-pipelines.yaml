@@ -1,0 +1,40 @@
+trigger:
+  - main  # or any branch you want to trigger on
+  - develop
+
+variables:
+- group: Docker - web-crawl-service
+
+steps:
+  - checkout: self
+    displayName: 'Checkout repository'
+
+  - task: AzureCLI@2
+    displayName: Login Rockspoon and Container Registries
+    inputs:
+      azureSubscription: 'Rockspoon Main Subscription'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: 'az acr login --name $(CONTAINER_REGISTRY)'
+
+  - task: Bash@3
+    displayName: Build tag and push DockerImage
+    condition: succeeded()
+    inputs:
+      targetType: 'inline'
+      workingDirectory: $(Build.SourcesDirectory)
+      script: |
+        COMMIT=$(git rev-parse --short HEAD)
+        REPOS_NAME="rs-roxy-digest"
+        VERSION="v1"
+        API_VERSION="$VERSION"
+        IMAGE_NAME="rockspoon/${REPOS_NAME}-${VERSION}"
+        PARTIAL_IMAGE_NAME="${REPOS_NAME}-${VERSION}"
+        TIMESTAMP=$(date +%s)
+        IMAGE_TAG="${PARTIAL_IMAGE_NAME}:$(env)-${COMMIT}-${TIMESTAMP}"
+
+        DOCKER_BUILDKIT=1 docker build -t $IMAGE_NAME -f Dockerfile . \
+          --progress=plain --platform linux/amd64
+        docker tag $IMAGE_NAME $(CONTAINER_REGISTRY).azurecr.io/rockspoon/$IMAGE_TAG
+        docker push $(CONTAINER_REGISTRY).azurecr.io/rockspoon/$IMAGE_TAG
+      bashEnvValue: '$(Build.Repository.LocalPath)'
